@@ -133,7 +133,6 @@ def test_model_generate_call_usage(
                 "prompt": [[1, 2, 3, 4, 5]],
                 "max_tokens": 1,
                 "logprobs": 1,
-                "echo": True,
                 "seed": 1234,
                 "temperature": 0,
             },

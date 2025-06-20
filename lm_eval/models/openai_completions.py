@@ -58,7 +58,6 @@ class LocalCompletionsAPI(TemplateAPI):
                 "max_tokens": 1,
                 "logprobs": 1,
                 "seed": seed,
-                "echo": True,
             }
 
     @staticmethod
@@ -72,18 +71,28 @@ class LocalCompletionsAPI(TemplateAPI):
         if not isinstance(outputs, list):
             outputs = [outputs]
         for out in outputs:
-            for choice, ctxlen in zip(
-                sorted(out["choices"], key=itemgetter("index")), ctxlens
-            ):
-                assert ctxlen > 0, "Context length must be greater than 0"
-                logprobs = sum(choice["logprobs"]["token_logprobs"][ctxlen:-1])
-                tokens_logprobs = choice["logprobs"]["token_logprobs"][ctxlen:-1]
-                top_logprobs = choice["logprobs"]["top_logprobs"][ctxlen:-1]
+            for choice in sorted(out["choices"], key=itemgetter("index")):
+                # Without echo, the API only returns logprobs for the continuation tokens
+                # The last token is often a special token and should be excluded
+                token_logprobs = choice["logprobs"]["token_logprobs"]
+                top_logprobs = choice["logprobs"]["top_logprobs"]
+
+                # Exclude the last token (often null or special)
+                if token_logprobs and token_logprobs[-1] is None:
+                    token_logprobs = token_logprobs[:-1]
+                    top_logprobs = top_logprobs[:-1]
+
+                # Sum all logprobs for the continuation
+                logprobs = sum(lp for lp in token_logprobs if lp is not None)
+
+                # Check if generation was greedy
                 is_greedy = True
-                for tok, top in zip(tokens_logprobs, top_logprobs):
-                    if tok != max(top.values()):
-                        is_greedy = False
-                        break
+                for tok_logprob, top_lps in zip(token_logprobs, top_logprobs):
+                    if tok_logprob is not None and top_lps:
+                        if tok_logprob != max(top_lps.values()):
+                            is_greedy = False
+                            break
+
                 res.append((logprobs, is_greedy))
         return res
 
