@@ -470,6 +470,7 @@ class TemplateAPI(TemplateLM):
                 self.base_url,
                 json=payload,
                 headers=self.header,
+                timeout=600,
             ) as response:
                 if not response.ok:
                     error_text = await response.text()
